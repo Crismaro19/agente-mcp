@@ -82,12 +82,6 @@ npx serve .
 
 ---
 
-## 🧑‍💻 Autor
-
-Cristian Romero
-
----
-
 ## 📄 Licencia
 
 Este proyecto está bajo la licencia MIT.
