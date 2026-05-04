@@ -1,42 +1,17 @@
+cat > README.md << 'EOF'
+
 # 🧠 Agente MCP + RAG (Local AI Agent)
 
-Un agente conversacional basado en **Model Context Protocol (MCP)** con soporte para:
+Agente conversacional basado en Model Context Protocol (MCP) con:
 
-- 🔍 RAG (Retrieval Augmented Generation) con Chroma
+- 🔍 RAG con ChromaDB
 - 🤖 LLM intercambiable (Ollama o OpenAI)
 - 🔌 Tools vía MCP
-- 💬 Chat interactivo (CLI + Web UI)
-- ⚡ Arquitectura lista para producción local
+- 💬 Chat CLI + Web UI
 
 ---
 
-## 🚀 Features
-
-- 🧠 Memoria conversacional
-- 📚 RAG con ChromaDB
-- 🔌 Tools con MCP
-- 🔄 Switch entre OpenAI y Ollama
-- 🌐 UI web tipo chat
-- ⚙️ Arquitectura desacoplada
-
----
-
-## 🏗️ Arquitectura
-
-Frontend → Backend → Agente (RAG + MCP + LLM)
-
----
-
-## 📦 Requisitos
-
-- Node.js >= 18
-- Docker (opcional para Chroma)
-- Ollama (opcional)
-- OpenAI API Key (opcional)
-
----
-
-## ⚙️ Instalación
+## 🚀 Instalación
 
 git clone https://github.com/Crismaro19/agente-mcp
 cd agente-mcp
@@ -44,7 +19,29 @@ npm install
 
 ---
 
-## 🧠 Configuración (.env)
+## 🤖 Instalar Ollama
+
+### 🐧 Linux
+
+curl -fsSL https://ollama.com/install.sh | sh  
+ollama serve
+
+---
+
+### 🍎 Mac
+
+brew install ollama  
+ollama serve
+
+---
+
+### 📦 Descargar modelo
+
+ollama pull llama3
+
+---
+
+## ⚙️ Configuración (.env)
 
 LLM_PROVIDER=ollama
 
@@ -62,19 +59,22 @@ docker run -p 8000:8000 chromadb/chroma
 
 ---
 
-## 🤖 Ejecutar el agente
+## 🤖 Ejecutar proyecto
 
 npm run dev
 
 ---
 
-## 🌐 UI
+## 🌐 UI Web
 
 npx serve .
 
+Abrir:  
+http://localhost:3000
+
 ---
 
-## 🧠 Tools
+## 🔌 Tools
 
 - get_time
 - sum_numbers
@@ -84,4 +84,5 @@ npx serve .
 
 ## 📄 Licencia
 
-Este proyecto está bajo la licencia MIT.
+MIT
+EOF
