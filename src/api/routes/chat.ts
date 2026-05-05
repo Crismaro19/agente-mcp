@@ -6,6 +6,9 @@ import {
   type ChatRequest,
   type ChatResponse,
 } from "../session-manager.js";
+import { logger } from "../../utils/logger.js";
+import { validateInput, ChatRequestSchema } from "../../utils/validation.js";
+import { asyncHandler } from "../../utils/error.js";
 
 export const chatRouter = Router();
 
@@ -15,28 +18,33 @@ export const chatRouter = Router();
  */
 chatRouter.post(
   "/",
-  async (req: Request<{}, {}, ChatRequest>, res: Response) => {
+  asyncHandler(async (req: Request, res: Response) => {
+    const requestId = (req as any).id;
+
+    // Validate input
+    const { sessionId, message } = validateInput(ChatRequestSchema, req.body);
+
+    logger.info(
+      { requestId, sessionId, messageLength: message.length },
+      "Chat request received",
+    );
+
+    // Get or create session
+    const session = sessionManager.getOrCreateSession(sessionId ?? undefined);
+
+    // Add user message to history
+    session.messages.push({ role: "user", content: message });
+
+    logger.debug(
+      { requestId, sessionId, messageCount: session.messages.length },
+      "Message added to history",
+    );
+
     try {
-      const { sessionId, message } = req.body;
-
-      if (!message || message.trim() === "") {
-        return res.status(400).json({
-          error: "El mensaje no puede estar vacío",
-        });
-      }
-
-      // Obtener o crear sesión
-      const session = sessionManager.getOrCreateSession(sessionId);
-
-      // Agregar mensaje del usuario
-      session.messages.push({ role: "user", content: message });
-
-      console.log(`\n📩 [${session.id}] Mensaje: ${message}`);
-
-      // Ejecutar agente
+      // Execute agent
       const response = await runAgentChat(session.messages);
 
-      // Agregar respuesta del agente
+      // Add agent response to history
       session.messages.push({ role: "assistant", content: response });
 
       const chatResponse: ChatResponse = {
@@ -45,13 +53,30 @@ chatRouter.post(
         messages: session.messages,
       };
 
+      logger.info(
+        { requestId, sessionId, responseLength: response.length },
+        "Chat response sent",
+      );
       res.json(chatResponse);
     } catch (error) {
-      console.error("❌ Error en POST /api/chat:", error);
-      res.status(500).json({
-        error: "Error al procesar el mensaje",
+      logger.error(
+        {
+          requestId,
+          sessionId,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        "LLM error",
+      );
+
+      // Remove the message that failed
+      session.messages.pop();
+
+      throw {
+        status: 503,
+        code: "LLM_ERROR",
+        message: "Failed to generate response from LLM",
         details: error instanceof Error ? error.message : "Unknown error",
-      });
+      };
     }
-  },
+  }),
 );

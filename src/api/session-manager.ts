@@ -41,6 +41,23 @@ REGLAS IMPORTANTES:
 Usa el contexto proporcionado si existe.
 `;
 
+const TOOL_SCHEMA = `
+Tienes acceso a las siguientes herramientas:
+
+1. search_docs(query: string)
+2. get_time()
+3. sum_numbers(a: number, b: number)
+
+Si necesitas usar una herramienta, responde SOLO en este formato JSON:
+
+{
+  "tool": "nombre_tool",
+  "arguments": { ... }
+}
+
+Si NO necesitas tool, responde normal.
+`;
+
 export class SessionManager {
   private sessions = new Map<string, ConversationSession>();
 
@@ -50,7 +67,9 @@ export class SessionManager {
       id,
       createdAt: new Date(),
       lastActivity: new Date(),
-      messages: [{ role: "system", content: SYSTEM_PROMPT }],
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT + "\n\n" + TOOL_SCHEMA },
+      ],
     };
     this.sessions.set(id, session);
     return session;
@@ -83,7 +102,9 @@ export class SessionManager {
     const session = this.sessions.get(sessionId);
     if (!session) return null;
 
-    session.messages = [{ role: "system", content: SYSTEM_PROMPT }];
+    session.messages = [
+      { role: "system", content: SYSTEM_PROMPT + "\n\n" + TOOL_SCHEMA },
+    ];
     session.lastActivity = new Date();
     return session;
   }

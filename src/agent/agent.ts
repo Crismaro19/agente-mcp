@@ -1,17 +1,17 @@
-import { initRAG } from "../rag/service.js";
+import { initRAG, searchRAG } from "../rag/service.js";
 import { LLMClient } from "../llm/client.js";
 import type { Message } from "../llm/client.js";
-import { detectAndExecuteTools } from "./tools.js";
+import { detectAndExecuteTools, tryParseToolCall } from "./tools.js";
 
 let llmClient: LLMClient;
 
 // Función para ejecutar el agente en un loop conversacional
-export async function runAgentChat(
+export async function runAgentChat1(
   conversationHistory: Array<{
     role: "user" | "assistant" | "system";
     content: string;
   }> = [],
-) {
+): Promise<string> {
   if (!llmClient) {
     throw new Error("LLM Client no inicializado");
   }
@@ -70,6 +70,63 @@ export async function runAgentChat(
     console.error("Error en el agente:", error);
     throw error;
   }
+}
+
+export async function runAgentChat(history: Message[]) {
+  let messages = [...history];
+
+  const response = await llmClient.complete(messages);
+
+  const content = response.message.content || "";
+
+  const toolCall = tryParseToolCall(content);
+
+  console.log("LLM response:", content);
+  console.log("Parsed tool call:", toolCall);
+
+  // 🧠 1. Si el modelo pidió tool
+  if (toolCall) {
+    let result = "";
+
+    console.log(
+      `Ejecutando herramienta: ${toolCall.tool} con argumentos:`,
+      toolCall.arguments,
+    );
+
+    switch (toolCall.tool) {
+      case "search_docs":
+        const docs = await searchRAG(toolCall.arguments.query);
+        result = docs?.join("\n") || "No encontrado";
+        break;
+
+      case "get_time":
+        result = new Date().toISOString();
+        break;
+
+      case "sum_numbers":
+        result = (toolCall.arguments.a + toolCall.arguments.b).toString();
+        break;
+    }
+
+    // 🧠 2. Le devuelves el resultado al modelo
+    messages.push({
+      role: "assistant",
+      content: content, // el JSON que generó
+    });
+
+    messages.push({
+      role: "user",
+      content: `Resultado de la herramienta: ${result}`,
+    });
+
+    // 🧠 3. Segunda llamada → respuesta final
+    const final = await llmClient.complete(messages);
+
+    return final.message.content || "Sin respuesta";
+  }
+
+  // 🧠 4. Si no pidió tool
+  return content;
 }
 
 // Inicializar cliente LLM

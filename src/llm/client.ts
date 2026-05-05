@@ -72,11 +72,11 @@ class LLMClient {
     if (this.provider === "ollama" && process.env.LLM_MODEL === "gpt-4o-mini") {
       console.warn(
         "\n⚠️  Aviso: Estás usando OLLAMA pero con modelo 'gpt-4o-mini' (OpenAI)\n" +
-          "   Cambiando automáticamente a modelo de Ollama: llama2\n" +
+          "   Cambiando automáticamente a modelo de Ollama: qwen3.5:9b\n" +
           "   Para usar otros modelos, configura: export LLM_MODEL=neural-chat\n" +
           "   (primero: ollama pull neural-chat)\n",
       );
-      this.model = "llama2";
+      this.model = "qwen3.5:9b";
     }
 
     console.log(
@@ -88,7 +88,7 @@ class LLMClient {
     if (this.provider === "openai") {
       return "gpt-4o-mini";
     } else {
-      return "llama2";
+      return "qwen3.5:9b";
     }
   }
 
@@ -99,7 +99,7 @@ class LLMClient {
     if (this.provider === "openai") {
       return this.completeOpenAI(messages, tools);
     } else {
-      return this.completeOllama(messages, tools);
+      return this.completeOllama(messages);
     }
   }
 
@@ -150,57 +150,44 @@ class LLMClient {
 
   private async completeOllama(
     messages: Message[],
-    tools?: ToolDefinition[],
   ): Promise<CompletionResponse> {
-    if (!this.ollamaClient) {
-      throw new Error("Ollama client no inicializado");
-    }
-
-    // Para Ollama, simplificamos: sin tool calling
-    // Solo generamos respuestas coherentes
-    const systemPrompt =
-      messages.find((m) => m.role === "system")?.content || "";
-    const userMessages = messages.filter((m) => m.role !== "system");
-
-    const prompt = `${systemPrompt}\n\nConversación:
-${userMessages
-  .map((m) => `${m.role === "user" ? "Usuario" : "Asistente"}: ${m.content}`)
-  .join("\n\n")}
-
-Asistente:`;
-
     try {
-      const response = await this.ollamaClient.generate({
-        model: this.model,
-        prompt,
-        stream: false,
+      const res = await fetch("http://localhost:11434/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: this.model || "qwen3.5:9b",
+          messages: messages.map((m) => ({
+            role: m.role,
+            content: m.content,
+          })),
+          stream: false,
+        }),
       });
 
-      const content = response.response.trim();
+      if (!res.ok) {
+        throw new Error(`Ollama error: ${res.status}`);
+      }
+
+      const data = await res.json();
+
+      const content = data.message?.content?.trim();
+
+      if (!content) {
+        throw new Error("Respuesta vacía de Ollama");
+      }
 
       return {
         message: {
           content,
-          tool_calls: [],
+          tool_calls: [], // lo manejas tú con JSON parsing
         },
         stop_reason: "stop",
       };
     } catch (error: any) {
-      if (error.error?.includes("model") && error.status_code === 404) {
-        throw new Error(
-          `❌ Modelo '${this.model}' no encontrado en Ollama.\n\n` +
-            `Opciones:\n` +
-            `1. Descarga un modelo disponible:\n` +
-            `   ollama pull llama2\n` +
-            `   ollama pull neural-chat\n` +
-            `   ollama pull mistral\n\n` +
-            `2. Usa el modelo descargado:\n` +
-            `   export LLM_MODEL=llama2\n` +
-            `   npm run agent\n\n` +
-            `3. Verifica qué modelos tienes: ollama list`,
-        );
-      }
-      throw error;
+      throw new Error(`Error en Ollama: ${error.message}`);
     }
   }
 
